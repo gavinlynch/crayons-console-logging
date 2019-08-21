@@ -1,0 +1,12 @@
+{
+  "name": "crayons-console-logging",
+  "version": "1.0.0",
+  "description": "Colored console logging.",
+  "main": "index.js",
+  "scripts": {},
+  "author": "Gavin Brady Lynch",
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^4.17.15"
+  }
+}
