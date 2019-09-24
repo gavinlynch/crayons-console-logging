@@ -1,7 +1,12 @@
 {
   "name": "crayons-console-logging",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Colored console logging.",
+  "url": "https://github.com/gavinlynch/crayons-console-logging",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gavinlynch/crayons-console-logging"
+  },
   "main": "index.js",
   "scripts": {},
   "author": "Gavin Brady Lynch",

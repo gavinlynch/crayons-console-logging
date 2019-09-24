@@ -1,11 +1,54 @@
+/**
+ * A colorful console styling library.
+ *
+ * @TODO: everything.
+ *
+ * @example:
+ *
+ *   // lib
+ *   import Crayons from 'crayons-console-logging'
+ *
+ *   // Proxy console with crayons logging.
+ *   const crayons = new Crayons(console)
+ *
+ *   // Add crayons to the crayonbox.
+ *   crayons.add({
+ *     name: 'warning',
+ *     logLevel: 'warning',
+ *     style: {
+ *       fontSize: '14px',
+ *       color: 'Gold',
+ *       backgroundColor: 'OrangeRed'
+ *     }
+ *   })
+ *
+ *   crayons.add({
+ *     name: 'info',
+ *     logLevel: 'log',
+ *     style: {
+ *       fontSize: '14px',
+ *       color: 'LightCyan',
+ *       backgroundColor: 'CadetBlue'
+ *     }
+ *   })
+ *
+ *   export default crayons
+ */
+
 import _ from 'lodash'
 import colors from './colors'
 
+const DEFAULT_LOG_LEVEL = 'log'
+
+const resetStyle = [
+  'display: block'
+].join(';')
+
 const baseStyle = [
-  'display: block;',
-  'padding: 0.5em 0.2em;',
-  'line-height: 1em;'
-].join('')
+  'display: block',
+  'padding: 0.5em 0.33em',
+  'line-height: 1em'
+].join(';')
 
 function isColor(name){
   const n = name.toLowerCase()
@@ -35,14 +78,21 @@ function getColor(name){
 class Crayons {
   constructor(logger, options={}){
     this.logger = Object.assign({}, logger)
+    this.native = Object.assign({}, logger)
     this.baseStyle = options.baseStyle || baseStyle
-    this.styles = []
+    this.crayons = []
     return this.proxyConstructor(logger)
   }
 
-  add(name, style){
-    console.log(this, name, style)
-    this.styles[name] = style
+  add(crayon){
+    this.crayons[crayon.name] = Object.assign({}, crayon, {
+      logLevel: DEFAULT_LOG_LEVEL,
+      style: this.toCSS(crayon.style)
+    })
+  }
+
+  get(name){
+    return this.crayons[name]
   }
 
   getFgColoring(name){
@@ -54,7 +104,7 @@ class Crayons {
   }
 
   toCSS(ops={}) {
-    return this.baseStyle + (Object.keys(ops).reduce((sum, styleKey) => {
+    return `${this.baseStyle};` + (Object.keys(ops).reduce((sum, styleKey) => {
       return sum.concat(`${_.kebabCase(styleKey)}: ${ops[styleKey]}`)
     }, [])).join('; ')
   }
@@ -81,47 +131,66 @@ class Crayons {
     return styles
   }
 
+  isCrayon(obj){
+    if (typeof obj !== 'object') return false
+    return ('name' in obj) && ('logLevel' in obj) && ('style' in obj)
+  }
+
   proxyConstructor(logger) {
     const self = this
     return new Proxy(logger, {
       get: (target, key) => {
         let styles
 
-        // add named styles
-        if (key === 'add') return (name, style) => this.add(name, style)
-
-        // when calling crayon.draw()
-        if (key === 'draw') return (options) => {
-          // get a pre-defined named style
-          if (typeof options === 'string' && !!this.styles[options]) {
-            return this.returnStyles(this.transformStyles(this.styles[options]))
-          }
-
-          const drawn = this.transformStyles(options)
-          // multiple styles
-          if (Array.isArray(options)) {
-            return drawn
-          }
-          // singular style
-          else {
-            return this.transformStyles(options)[0]
-          }
+        // when calling console.addCrayon()
+        if (key === 'add'){
+          return (crayon) => this.add(crayon)
         }
 
-        // when calling a crayon[color]()
-        if (isBgColor(key)) return () => this.getBgColoring(key)
-        if (isColor(key)) return () => this.getFgColoring(key)
+        // when calling console.getCrayon()
+        if (key === 'get') return (name) => {
+          const crayon = this.get(name)
+          return crayon
+        }
 
-        // when calling a logger[method](), the color will be the second parameter
-        if (Object.getOwnPropertyNames(logger).includes(key)) {
-          return new Proxy({}, {
-            get: (trgt, clr) => {
-              const color = getColor(clr)
-              return (...args) => {
-                this.render(target, key, clr, args)
-              }
-            }
+        // when calling crayon.draw()
+        if (key === 'draw') return (...args) => {
+          const icon = '%c\u270E '
+
+          const foundCrayons = args.reduce((sum, consoleArg) => {
+            if (this.isCrayon(consoleArg)) sum.push(consoleArg)
+            return sum
+          }, [])
+
+          const logItems = args.slice(0, args.length - 1)
+          const messages = logItems.map((msg) => {
+            if (!msg) msg = ''
+            if (msg.indexOf('%c') === -1) msg = `%c${msg}`
+            return msg
+          }).join('')
+
+          const drawWithCrayons = logItems.map((msg, i) => {
+            return !!foundCrayons[i] ? foundCrayons[i].style : foundCrayons[0].style
           })
+
+          const {logLevel} = foundCrayons[0]
+          return this.native[logLevel].apply(this, [messages, ...drawWithCrayons])
+        }
+
+        return (...args) => {
+          const icon = '\u270E '
+          const iconStyle = 'font-size: 36px;'
+          const logItems = [icon].concat(args.slice(0, args.length - 1))
+          const messages = logItems.map((msg) => {
+            if (msg && msg.indexOf('%c') === -1) msg = `%c${msg}`
+            return msg
+          }).join('')
+
+          const drawWithCrayons = logItems.map((msg, i) => {
+            return (i === 0) ? iconStyle : resetStyle
+          })
+
+          this.native[key].apply(this, [messages, ...drawWithCrayons])
         }
 
       }
