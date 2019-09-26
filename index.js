@@ -14,7 +14,7 @@
  *   // Add crayons to the crayonbox.
  *   crayons.add({
  *     name: 'warning',
- *     logLevel: 'warning',
+ *     type: 'warning',
  *     style: {
  *       fontSize: '14px',
  *       color: 'Gold',
@@ -24,7 +24,7 @@
  *
  *   crayons.add({
  *     name: 'info',
- *     logLevel: 'log',
+ *     type: 'log',
  *     style: {
  *       fontSize: '14px',
  *       color: 'LightCyan',
@@ -86,7 +86,7 @@ class Crayons {
 
   add(crayon){
     this.crayons[crayon.name] = Object.assign({}, crayon, {
-      logLevel: DEFAULT_LOG_LEVEL,
+      type: DEFAULT_LOG_LEVEL,
       style: this.toCSS(crayon.style)
     })
   }
@@ -133,7 +133,7 @@ class Crayons {
 
   isCrayon(obj){
     if (typeof obj !== 'object') return false
-    return ('name' in obj) && ('logLevel' in obj) && ('style' in obj)
+    return ('name' in obj) && ('type' in obj) && ('style' in obj)
   }
 
   proxyConstructor(logger) {
@@ -165,16 +165,21 @@ class Crayons {
           const logItems = args.slice(0, args.length - 1)
           const messages = logItems.map((msg) => {
             if (!msg) msg = ''
+            if (msg === null) msg = 'null'
+            if (msg === undefined) msg = 'undefined'
             if (msg.indexOf('%c') === -1) msg = `%c${msg}`
             return msg
           }).join('')
 
           const drawWithCrayons = logItems.map((msg, i) => {
-            return !!foundCrayons[i] ? foundCrayons[i].style : foundCrayons[0].style
+            const crayon = foundCrayons[i] || foundCrayons[0]
+            return crayon ? crayon.style : null
           })
 
-          const {logLevel} = foundCrayons[0]
-          return this.native[logLevel].apply(this, [messages, ...drawWithCrayons])
+          if (foundCrayons.length === 0) return
+
+          const {type} = foundCrayons[0]
+          return this.native[type].apply(this, [messages, ...drawWithCrayons])
         }
 
         return (...args) => {
